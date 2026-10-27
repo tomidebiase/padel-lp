@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { signOut } from 'firebase/auth';
 import {
   ResponsiveContainer,
   BarChart,
@@ -15,11 +17,9 @@ import {
   Cell,
   Legend,
 } from 'recharts';
-import {
-  getReservationsByClub,
-  markReservationAsPaid,
-  cancelReservation,
-} from '../firebase/reservations';
+
+import { auth } from '../firebase/config';
+import { getReservationsByClub } from '../firebase/reservations';
 
 function formatStatus(status) {
   switch (status) {
@@ -60,23 +60,23 @@ function normalizeDateString(dateValue) {
   return String(dateValue).slice(0, 10);
 }
 
-function getTodayString() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
+function getDateString(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
   return `${year}-${month}-${day}`;
+}
+
+function getTodayString() {
+  return getDateString(new Date());
 }
 
 function getTomorrowString() {
   const date = new Date();
   date.setDate(date.getDate() + 1);
 
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-
-  return `${year}-${month}-${day}`;
+  return getDateString(date);
 }
 
 function getCurrentMonthString() {
@@ -90,11 +90,7 @@ function getLastNDays(n) {
     const date = new Date();
     date.setDate(date.getDate() - i);
 
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-
-    days.push(`${year}-${month}-${day}`);
+    days.push(getDateString(date));
   }
 
   return days;
@@ -102,8 +98,21 @@ function getLastNDays(n) {
 
 function formatShortDate(dateString) {
   if (!dateString) return '';
+
   const [, month, day] = dateString.split('-');
+
   return `${day}/${month}`;
+}
+
+function getStoredAdminUser() {
+  try {
+    const storedUser = localStorage.getItem('adminUser');
+
+    return storedUser ? JSON.parse(storedUser) : null;
+  } catch (error) {
+    console.error('Error al leer los datos del administrador:', error);
+    return null;
+  }
 }
 
 const STATUS_COLORS = {
@@ -114,11 +123,29 @@ const STATUS_COLORS = {
   cancelled: '#9ca3af',
 };
 
+const ACTIVE_STATUSES = [
+  'pending_payment',
+  'proof_submitted',
+  'paid',
+];
+
+const PENDING_STATUSES = [
+  'pending_payment',
+  'proof_submitted',
+];
+
+const HISTORY_STATUSES = [
+  'cancelled',
+  'expired',
+];
+
 function AdminReservations() {
   const navigate = useNavigate();
 
-  const storedAdminUser = localStorage.getItem('adminUser');
-  const adminUser = storedAdminUser ? JSON.parse(storedAdminUser) : null;
+  // El perfil lo verificó previamente ProtectedAdminRoute.
+  // Estos datos se usan para presentar el panel.
+  // La seguridad de la base de datos depende de Firestore Rules.
+  const adminUser = getStoredAdminUser();
 
   const clubId = adminUser?.clubId || '';
   const clubName = adminUser?.clubName || 'Club';
@@ -131,11 +158,10 @@ function AdminReservations() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [message, setMessage] = useState('');
-  const [reservationToCancel, setReservationToCancel] = useState(null);
-  const [isCancelling, setIsCancelling] = useState(false);
 
-  const loadReservations = async () => {
+  const loadReservations = useCallback(async () => {
     if (!clubId) {
       setReservations([]);
       setIsLoading(false);
@@ -147,91 +173,138 @@ function AdminReservations() {
       setMessage('');
 
       const data = await getReservationsByClub(clubId);
+
       setReservations(data);
     } catch (error) {
-      console.error(error);
-      setMessage('No se pudieron cargar las reservas.');
+      console.error('Error al cargar reservas:', error);
+
+      setMessage(
+        'No se pudieron cargar las reservas del club.'
+      );
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [clubId]);
 
   useEffect(() => {
     loadReservations();
-  }, [clubId]);
+  }, [loadReservations]);
 
+  // Reservas activas.
   const activeReservations = useMemo(() => {
     return reservations.filter((reservation) =>
-      ['pending_payment', 'proof_submitted', 'paid'].includes(reservation.status)
+      ACTIVE_STATUSES.includes(reservation.status)
     );
   }, [reservations]);
 
+  // Reservas del historial.
   const historyReservations = useMemo(() => {
     let base = reservations.filter((reservation) =>
-      ['cancelled', 'expired'].includes(reservation.status)
+      HISTORY_STATUSES.includes(reservation.status)
     );
 
     if (historyFilter === 'cancelled') {
-      base = base.filter((reservation) => reservation.status === 'cancelled');
+      base = base.filter(
+        (reservation) => reservation.status === 'cancelled'
+      );
     }
 
     if (historyFilter === 'expired') {
-      base = base.filter((reservation) => reservation.status === 'expired');
+      base = base.filter(
+        (reservation) => reservation.status === 'expired'
+      );
     }
 
     return base;
   }, [reservations, historyFilter]);
 
   const visibleReservationsBase = useMemo(() => {
-    return reservationsTab === 'activas' ? activeReservations : historyReservations;
-  }, [reservationsTab, activeReservations, historyReservations]);
+    return reservationsTab === 'activas'
+      ? activeReservations
+      : historyReservations;
+  }, [
+    reservationsTab,
+    activeReservations,
+    historyReservations,
+  ]);
 
+  // Aplicar filtros.
   const filteredReservations = useMemo(() => {
     const today = getTodayString();
     const tomorrow = getTomorrowString();
 
     return visibleReservationsBase.filter((reservation) => {
-      const reservationDate = normalizeDateString(reservation.date);
+      const reservationDate = normalizeDateString(
+        reservation.date
+      );
 
       const matchesStatus =
-        statusFilter === 'all' ? true : reservation.status === statusFilter;
+        statusFilter === 'all' ||
+        reservation.status === statusFilter;
 
-      const matchesDate = dateFilter ? reservationDate === dateFilter : true;
+      const matchesDate =
+        !dateFilter || reservationDate === dateFilter;
 
-      const matchesQuickFilter =
-        quickFilter === 'all'
-          ? true
-          : quickFilter === 'pending'
-          ? ['pending_payment', 'proof_submitted'].includes(reservation.status)
-          : quickFilter === 'today'
-          ? reservationDate === today
-          : quickFilter === 'tomorrow'
-          ? reservationDate === tomorrow
-          : true;
+      let matchesQuickFilter = true;
 
-      return matchesStatus && matchesDate && matchesQuickFilter;
+      if (quickFilter === 'pending') {
+        matchesQuickFilter = PENDING_STATUSES.includes(
+          reservation.status
+        );
+      }
+
+      if (quickFilter === 'today') {
+        matchesQuickFilter = reservationDate === today;
+      }
+
+      if (quickFilter === 'tomorrow') {
+        matchesQuickFilter = reservationDate === tomorrow;
+      }
+
+      return (
+        matchesStatus &&
+        matchesDate &&
+        matchesQuickFilter
+      );
     });
-  }, [visibleReservationsBase, statusFilter, dateFilter, quickFilter]);
+  }, [
+    visibleReservationsBase,
+    statusFilter,
+    dateFilter,
+    quickFilter,
+  ]);
 
+  // Tarjetas de resumen.
   const summary = useMemo(() => {
     return {
       total: filteredReservations.length,
-      paid: filteredReservations.filter((item) => item.status === 'paid').length,
-      pending: filteredReservations.filter((item) =>
-        ['pending_payment', 'proof_submitted'].includes(item.status)
+
+      paid: filteredReservations.filter(
+        (item) => item.status === 'paid'
       ).length,
+
+      pending: filteredReservations.filter((item) =>
+        PENDING_STATUSES.includes(item.status)
+      ).length,
+
       revenue: filteredReservations
         .filter((item) => item.status === 'paid')
-        .reduce((acc, item) => acc + Number(item.price || 0), 0),
+        .reduce(
+          (acc, item) => acc + Number(item.price || 0),
+          0
+        ),
     };
   }, [filteredReservations]);
 
+  // Estadísticas y gráficos.
   const dashboardData = useMemo(() => {
     const today = getTodayString();
     const currentMonth = getCurrentMonthString();
     const last7Days = getLastNDays(7);
 
-    const paidReservations = reservations.filter((item) => item.status === 'paid');
+    const paidReservations = reservations.filter(
+      (item) => item.status === 'paid'
+    );
 
     const todayReservations = reservations.filter(
       (item) => normalizeDateString(item.date) === today
@@ -242,17 +315,32 @@ function AdminReservations() {
     );
 
     const todayRevenue = paidReservations
-      .filter((item) => normalizeDateString(item.date) === today)
-      .reduce((acc, item) => acc + Number(item.price || 0), 0);
+      .filter(
+        (item) => normalizeDateString(item.date) === today
+      )
+      .reduce(
+        (acc, item) => acc + Number(item.price || 0),
+        0
+      );
 
     const monthRevenue = paidReservations
-      .filter((item) => normalizeDateString(item.date).startsWith(currentMonth))
-      .reduce((acc, item) => acc + Number(item.price || 0), 0);
+      .filter((item) =>
+        normalizeDateString(item.date).startsWith(currentMonth)
+      )
+      .reduce(
+        (acc, item) => acc + Number(item.price || 0),
+        0
+      );
 
     const revenueByDay = last7Days.map((day) => {
       const total = paidReservations
-        .filter((item) => normalizeDateString(item.date) === day)
-        .reduce((acc, item) => acc + Number(item.price || 0), 0);
+        .filter(
+          (item) => normalizeDateString(item.date) === day
+        )
+        .reduce(
+          (acc, item) => acc + Number(item.price || 0),
+          0
+        );
 
       return {
         day,
@@ -282,7 +370,9 @@ function AdminReservations() {
     ].map((status) => ({
       key: status,
       name: formatStatus(status),
-      value: reservations.filter((item) => item.status === status).length,
+      value: reservations.filter(
+        (item) => item.status === status
+      ).length,
       color: STATUS_COLORS[status],
     }));
 
@@ -297,54 +387,46 @@ function AdminReservations() {
     };
   }, [reservations]);
 
-  const handleMarkAsPaid = async (documentId) => {
-    try {
-      await markReservationAsPaid(documentId);
-      await loadReservations();
-    } catch (error) {
-      console.error(error);
-      setMessage('No se pudo marcar la reserva como pagada.');
-    }
-  };
-
-  const openCancelModal = (reservation) => {
-    setReservationToCancel(reservation);
-  };
-
-  const closeCancelModal = () => {
-    if (isCancelling) return;
-    setReservationToCancel(null);
-  };
-
-  const confirmCancelReservation = async () => {
-    if (!reservationToCancel?.id) return;
+  // Cerrar la sesión REAL de Firebase.
+  const handleLogout = async () => {
+    if (isLoggingOut) return;
 
     try {
-      setIsCancelling(true);
-      await cancelReservation(reservationToCancel.id);
-      setReservationToCancel(null);
-      await loadReservations();
+      setIsLoggingOut(true);
+      setMessage('');
+
+      await signOut(auth);
+
+      // Limpiar los datos antiguos solamente
+      // después de cerrar la sesión de Firebase.
+      localStorage.removeItem('adminAuth');
+      localStorage.removeItem('adminUser');
+
+      navigate('/admin-login', {
+        replace: true,
+      });
     } catch (error) {
-      console.error(error);
-      setMessage('No se pudo cancelar la reserva.');
+      console.error('Error al cerrar sesión:', error);
+
+      setMessage(
+        'No se pudo cerrar la sesión. Intentá nuevamente.'
+      );
     } finally {
-      setIsCancelling(false);
+      setIsLoggingOut(false);
     }
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('adminAuth');
-    localStorage.removeItem('adminUser');
-    navigate('/admin-login');
   };
 
   const getWhatsappLink = (reservation) => {
-    const cleanPhone = String(reservation.customerPhone || '').replace(/\D/g, '');
+    const cleanPhone = String(
+      reservation.customerPhone || ''
+    ).replace(/\D/g, '');
 
     if (!cleanPhone) return null;
 
     const text = encodeURIComponent(
-      `Hola ${reservation.customerName || ''}, te escribimos desde ${clubName} por tu reserva en PadelLP.`
+      `Hola ${reservation.customerName || ''}, ` +
+      `te escribimos desde ${clubName} ` +
+      'por tu reserva en PadelLP.'
     );
 
     return `https://wa.me/${cleanPhone}?text=${text}`;
@@ -354,8 +436,14 @@ function AdminReservations() {
     if (reservationsTab === 'activas') {
       return [
         { value: 'all', label: 'Todos' },
-        { value: 'pending_payment', label: 'Pendiente de pago' },
-        { value: 'proof_submitted', label: 'Comprobante enviado' },
+        {
+          value: 'pending_payment',
+          label: 'Pendiente de pago',
+        },
+        {
+          value: 'proof_submitted',
+          label: 'Comprobante enviado',
+        },
         { value: 'paid', label: 'Pagada' },
       ];
     }
@@ -381,14 +469,25 @@ function AdminReservations() {
     ];
   };
 
+  const clearFilters = () => {
+    setQuickFilter('all');
+    setStatusFilter('all');
+    setDateFilter('');
+  };
+
+  const statusOptions = getStatusOptionsForCurrentView();
+
   if (!adminUser) {
     return (
       <section className="admin-page">
         <div className="checkout-form-card">
-          <p>No se encontró una sesión de administrador válida.</p>
+          <p>
+            No se encontró una sesión de administrador válida.
+          </p>
 
           <div className="detail-actions">
             <button
+              type="button"
               className="primary-button"
               onClick={() => navigate('/admin-login')}
             >
@@ -400,13 +499,12 @@ function AdminReservations() {
     );
   }
 
-  const statusOptions = getStatusOptionsForCurrentView();
-
   return (
     <section className="admin-page">
       <div className="admin-header admin-header-top">
         <div>
           <h1>Panel del club</h1>
+
           <p className="checkout-subtitle">
             Gestioná reservas, pagos y estados de {clubName}.
           </p>
@@ -416,7 +514,9 @@ function AdminReservations() {
           <div className="admin-tabs">
             <button
               type="button"
-              className={adminTab === 'reservas' ? 'active' : ''}
+              className={
+                adminTab === 'reservas' ? 'active' : ''
+              }
               onClick={() => setAdminTab('reservas')}
             >
               Reservas
@@ -424,40 +524,72 @@ function AdminReservations() {
 
             <button
               type="button"
-              className={adminTab === 'estadisticas' ? 'active' : ''}
+              className={
+                adminTab === 'estadisticas' ? 'active' : ''
+              }
               onClick={() => setAdminTab('estadisticas')}
             >
               Estadísticas
             </button>
           </div>
 
-          <button className="secondary-button" onClick={handleLogout}>
-            Cerrar sesión
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+          >
+            {isLoggingOut
+              ? 'Cerrando sesión...'
+              : 'Cerrar sesión'}
           </button>
         </div>
       </div>
 
+      {message && (
+        <p className="checkout-message" role="alert">
+          {message}
+        </p>
+      )}
+
+      {/* ESTADÍSTICAS */}
       {adminTab === 'estadisticas' && (
         <>
           <div className="admin-dashboard-grid">
             <div className="admin-summary-card">
               <span>Ingresos de hoy</span>
-              <strong>${dashboardData.todayRevenue.toLocaleString('es-AR')}</strong>
+
+              <strong>
+                ${dashboardData.todayRevenue.toLocaleString(
+                  'es-AR'
+                )}
+              </strong>
             </div>
 
             <div className="admin-summary-card">
               <span>Ingresos del mes</span>
-              <strong>${dashboardData.monthRevenue.toLocaleString('es-AR')}</strong>
+
+              <strong>
+                ${dashboardData.monthRevenue.toLocaleString(
+                  'es-AR'
+                )}
+              </strong>
             </div>
 
             <div className="admin-summary-card">
               <span>Reservas de hoy</span>
-              <strong>{dashboardData.todayReservationsCount}</strong>
+
+              <strong>
+                {dashboardData.todayReservationsCount}
+              </strong>
             </div>
 
             <div className="admin-summary-card">
               <span>Reservas del mes</span>
-              <strong>{dashboardData.monthReservationsCount}</strong>
+
+              <strong>
+                {dashboardData.monthReservationsCount}
+              </strong>
             </div>
           </div>
 
@@ -469,18 +601,34 @@ function AdminReservations() {
               </div>
 
               <div className="rechart-box">
-                <ResponsiveContainer width="100%" height={300}>
+                <ResponsiveContainer
+                  width="100%"
+                  height={300}
+                >
                   <BarChart data={dashboardData.revenueByDay}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      vertical={false}
+                    />
+
                     <XAxis dataKey="label" />
+
                     <YAxis />
+
                     <Tooltip
                       formatter={(value) => [
-                        `$${Number(value).toLocaleString('es-AR')}`,
+                        `$${Number(value).toLocaleString(
+                          'es-AR'
+                        )}`,
                         'Ingresos',
                       ]}
                     />
-                    <Bar dataKey="ingresos" radius={[8, 8, 0, 0]} fill="#4f46e5" />
+
+                    <Bar
+                      dataKey="ingresos"
+                      radius={[8, 8, 0, 0]}
+                      fill="#4f46e5"
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -493,12 +641,29 @@ function AdminReservations() {
               </div>
 
               <div className="rechart-box">
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={dashboardData.reservationsByDay}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <ResponsiveContainer
+                  width="100%"
+                  height={300}
+                >
+                  <LineChart
+                    data={dashboardData.reservationsByDay}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      vertical={false}
+                    />
+
                     <XAxis dataKey="label" />
+
                     <YAxis allowDecimals={false} />
-                    <Tooltip formatter={(value) => [Number(value), 'Reservas']} />
+
+                    <Tooltip
+                      formatter={(value) => [
+                        Number(value),
+                        'Reservas',
+                      ]}
+                    />
+
                     <Line
                       type="monotone"
                       dataKey="reservas"
@@ -517,11 +682,15 @@ function AdminReservations() {
             <div className="admin-chart-card">
               <div className="admin-chart-header">
                 <h2>Estados de reservas</h2>
+
                 <p>Distribución general</p>
               </div>
 
               <div className="rechart-box pie">
-                <ResponsiveContainer width="100%" height={320}>
+                <ResponsiveContainer
+                  width="100%"
+                  height={320}
+                >
                   <PieChart>
                     <Pie
                       data={dashboardData.statuses}
@@ -533,11 +702,23 @@ function AdminReservations() {
                       innerRadius={55}
                       paddingAngle={3}
                     >
-                      {dashboardData.statuses.map((entry) => (
-                        <Cell key={entry.key} fill={entry.color} />
-                      ))}
+                      {dashboardData.statuses.map(
+                        (entry) => (
+                          <Cell
+                            key={entry.key}
+                            fill={entry.color}
+                          />
+                        )
+                      )}
                     </Pie>
-                    <Tooltip formatter={(value) => [Number(value), 'Cantidad']} />
+
+                    <Tooltip
+                      formatter={(value) => [
+                        Number(value),
+                        'Cantidad',
+                      ]}
+                    />
+
                     <Legend />
                   </PieChart>
                 </ResponsiveContainer>
@@ -547,8 +728,17 @@ function AdminReservations() {
 
           <div className="admin-status-overview">
             {dashboardData.statuses.map((item) => (
-              <div key={item.key} className="admin-status-overview-card">
-                <span className={`admin-status-dot ${getStatusClass(item.key)}`} />
+              <div
+                key={item.key}
+                className="admin-status-overview-card"
+              >
+                <span
+                  className={
+                    `admin-status-dot ` +
+                    getStatusClass(item.key)
+                  }
+                />
+
                 <div>
                   <p>{item.name}</p>
                   <strong>{item.value}</strong>
@@ -559,18 +749,21 @@ function AdminReservations() {
         </>
       )}
 
+      {/* RESERVAS */}
       {adminTab === 'reservas' && (
         <>
           <div className="admin-subtabs">
             <button
               type="button"
-              className={reservationsTab === 'activas' ? 'active' : ''}
+              className={
+                reservationsTab === 'activas'
+                  ? 'active'
+                  : ''
+              }
               onClick={() => {
                 setReservationsTab('activas');
                 setHistoryFilter('all');
-                setQuickFilter('all');
-                setStatusFilter('all');
-                setDateFilter('');
+                clearFilters();
               }}
             >
               Activas
@@ -578,12 +771,14 @@ function AdminReservations() {
 
             <button
               type="button"
-              className={reservationsTab === 'historial' ? 'active' : ''}
+              className={
+                reservationsTab === 'historial'
+                  ? 'active'
+                  : ''
+              }
               onClick={() => {
                 setReservationsTab('historial');
-                setQuickFilter('all');
-                setStatusFilter('all');
-                setDateFilter('');
+                clearFilters();
               }}
             >
               Historial
@@ -594,23 +789,22 @@ function AdminReservations() {
             <div className="admin-subtabs secondary">
               <button
                 type="button"
-                className={quickFilter === 'all' ? 'active' : ''}
-                onClick={() => {
-                  setQuickFilter('all');
-                  setStatusFilter('all');
-                  setDateFilter('');
-                }}
+                className={
+                  quickFilter === 'all' ? 'active' : ''
+                }
+                onClick={clearFilters}
               >
                 Todas
               </button>
 
               <button
                 type="button"
-                className={quickFilter === 'pending' ? 'active' : ''}
+                className={
+                  quickFilter === 'pending' ? 'active' : ''
+                }
                 onClick={() => {
+                  clearFilters();
                   setQuickFilter('pending');
-                  setStatusFilter('all');
-                  setDateFilter('');
                 }}
               >
                 Solo pendientes
@@ -618,11 +812,12 @@ function AdminReservations() {
 
               <button
                 type="button"
-                className={quickFilter === 'today' ? 'active' : ''}
+                className={
+                  quickFilter === 'today' ? 'active' : ''
+                }
                 onClick={() => {
+                  clearFilters();
                   setQuickFilter('today');
-                  setStatusFilter('all');
-                  setDateFilter('');
                 }}
               >
                 Hoy
@@ -630,11 +825,12 @@ function AdminReservations() {
 
               <button
                 type="button"
-                className={quickFilter === 'tomorrow' ? 'active' : ''}
+                className={
+                  quickFilter === 'tomorrow' ? 'active' : ''
+                }
                 onClick={() => {
+                  clearFilters();
                   setQuickFilter('tomorrow');
-                  setStatusFilter('all');
-                  setDateFilter('');
                 }}
               >
                 Mañana
@@ -646,11 +842,12 @@ function AdminReservations() {
             <div className="admin-subtabs secondary">
               <button
                 type="button"
-                className={historyFilter === 'all' ? 'active' : ''}
+                className={
+                  historyFilter === 'all' ? 'active' : ''
+                }
                 onClick={() => {
                   setHistoryFilter('all');
-                  setQuickFilter('all');
-                  setStatusFilter('all');
+                  clearFilters();
                 }}
               >
                 Todas
@@ -658,11 +855,14 @@ function AdminReservations() {
 
               <button
                 type="button"
-                className={historyFilter === 'cancelled' ? 'active' : ''}
+                className={
+                  historyFilter === 'cancelled'
+                    ? 'active'
+                    : ''
+                }
                 onClick={() => {
                   setHistoryFilter('cancelled');
-                  setQuickFilter('all');
-                  setStatusFilter('all');
+                  clearFilters();
                 }}
               >
                 Canceladas
@@ -670,11 +870,12 @@ function AdminReservations() {
 
               <button
                 type="button"
-                className={historyFilter === 'expired' ? 'active' : ''}
+                className={
+                  historyFilter === 'expired' ? 'active' : ''
+                }
                 onClick={() => {
                   setHistoryFilter('expired');
-                  setQuickFilter('all');
-                  setStatusFilter('all');
+                  clearFilters();
                 }}
               >
                 Vencidas
@@ -699,6 +900,7 @@ function AdminReservations() {
                   ? 'Vencidas'
                   : 'Historial visible'}
               </span>
+
               <strong>{summary.total}</strong>
             </div>
 
@@ -714,20 +916,31 @@ function AdminReservations() {
 
             <div className="admin-summary-card">
               <span>Ingresos cobrados</span>
-              <strong>${summary.revenue.toLocaleString('es-AR')}</strong>
+
+              <strong>
+                ${summary.revenue.toLocaleString('es-AR')}
+              </strong>
             </div>
           </div>
 
           <div className="admin-filters">
             <div className="admin-filter-field">
-              <label htmlFor="status-filter">Estado</label>
+              <label htmlFor="status-filter">
+                Estado
+              </label>
+
               <select
                 id="status-filter"
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
+                onChange={(event) =>
+                  setStatusFilter(event.target.value)
+                }
               >
                 {statusOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
+                  <option
+                    key={option.value}
+                    value={option.value}
+                  >
                     {option.label}
                   </option>
                 ))}
@@ -735,34 +948,54 @@ function AdminReservations() {
             </div>
 
             <div className="admin-filter-field">
-              <label htmlFor="date-filter">Fecha</label>
+              <label htmlFor="date-filter">
+                Fecha
+              </label>
+
               <input
                 id="date-filter"
                 type="date"
                 value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
+                onChange={(event) =>
+                  setDateFilter(event.target.value)
+                }
               />
             </div>
 
             <div className="admin-filter-actions">
-              <button className="secondary-button" onClick={loadReservations}>
-                Actualizar
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={loadReservations}
+                disabled={isLoading}
+              >
+                {isLoading ? 'Cargando...' : 'Actualizar'}
               </button>
 
               <button
+                type="button"
                 className="secondary-button"
-                onClick={() => {
-                  setQuickFilter('all');
-                  setStatusFilter('all');
-                  setDateFilter('');
-                }}
+                onClick={clearFilters}
               >
                 Limpiar filtros
               </button>
             </div>
           </div>
 
-          {message && <p className="checkout-message">{message}</p>}
+          {/* Aviso de seguridad para las acciones administrativas */}
+          {reservationsTab === 'activas' && (
+            <p
+              style={{
+                fontSize: '13px',
+                color: '#64748b',
+                margin: '16px 0',
+              }}
+            >
+              La confirmación de pagos y la cancelación de
+              reservas están temporalmente deshabilitadas
+              mientras completamos la seguridad del sistema.
+            </p>
+          )}
 
           {isLoading ? (
             <div className="checkout-form-card">
@@ -770,60 +1003,117 @@ function AdminReservations() {
             </div>
           ) : filteredReservations.length === 0 ? (
             <div className="checkout-form-card">
-              <p>No hay reservas para mostrar con esos filtros.</p>
+              <p>
+                No hay reservas para mostrar con esos filtros.
+              </p>
             </div>
           ) : (
             <div className="admin-reservations-list">
               {filteredReservations.map((reservation) => {
-                const whatsappLink = getWhatsappLink(reservation);
+                const whatsappLink = getWhatsappLink(
+                  reservation
+                );
+
+                const isHistoryReservation =
+                  HISTORY_STATUSES.includes(
+                    reservation.status
+                  );
+
+                const canEventuallyMarkPaid =
+                  PENDING_STATUSES.includes(
+                    reservation.status
+                  );
+
+                const canEventuallyCancel =
+                  ACTIVE_STATUSES.includes(
+                    reservation.status
+                  );
 
                 return (
-                  <article key={reservation.id} className="admin-reservation-card">
+                  <article
+                    key={reservation.id}
+                    className="admin-reservation-card"
+                  >
                     <div className="admin-reservation-top">
                       <div>
-                        <h3>{reservation.courtName || 'Cancha'}</h3>
+                        <h3>
+                          {reservation.courtName || 'Cancha'}
+                        </h3>
+
                         <p>
-                          {reservation.date} · {reservation.schedule}
+                          {reservation.date} ·{' '}
+                          {reservation.schedule}
                         </p>
                       </div>
 
                       <span
-                        className={`admin-status-badge ${getStatusClass(
-                          reservation.status
-                        )}`}
+                        className={
+                          `admin-status-badge ` +
+                          getStatusClass(reservation.status)
+                        }
                       >
-                        {formatStatus(reservation.status)}
+                        {formatStatus(
+                          reservation.status
+                        )}
                       </span>
                     </div>
 
                     <div className="admin-reservation-grid">
                       <div>
-                        <span className="admin-label">Cliente</span>
-                        <p>{reservation.customerName || 'Sin nombre'}</p>
-                      </div>
+                        <span className="admin-label">
+                          Cliente
+                        </span>
 
-                      <div>
-                        <span className="admin-label">Email</span>
-                        <p>{reservation.customerEmail || 'Sin email'}</p>
-                      </div>
-
-                      <div>
-                        <span className="admin-label">Teléfono</span>
-                        <p>{reservation.customerPhone || 'Sin teléfono'}</p>
-                      </div>
-
-                      <div>
-                        <span className="admin-label">Monto</span>
                         <p>
-                          ${Number(reservation.price || 0).toLocaleString('es-AR')}
+                          {reservation.customerName ||
+                            'Sin nombre'}
                         </p>
                       </div>
 
                       <div>
-                        <span className="admin-label">Pago</span>
+                        <span className="admin-label">
+                          Email
+                        </span>
+
+                        <p>
+                          {reservation.customerEmail ||
+                            'Sin email'}
+                        </p>
+                      </div>
+
+                      <div>
+                        <span className="admin-label">
+                          Teléfono
+                        </span>
+
+                        <p>
+                          {reservation.customerPhone ||
+                            'Sin teléfono'}
+                        </p>
+                      </div>
+
+                      <div>
+                        <span className="admin-label">
+                          Monto
+                        </span>
+
+                        <p>
+                          $
+                          {Number(
+                            reservation.price || 0
+                          ).toLocaleString('es-AR')}
+                        </p>
+                      </div>
+
+                      <div>
+                        <span className="admin-label">
+                          Pago
+                        </span>
+
                         <p>
                           {reservation.paymentMethod
-                            ? reservation.paymentMethod === 'mp'
+                            ? reservation.paymentMethod ===
+                              'mp'
                               ? 'Mercado Pago'
                               : 'Transferencia / alias'
                             : 'No registrado'}
@@ -831,8 +1121,15 @@ function AdminReservations() {
                       </div>
 
                       <div>
-                        <span className="admin-label">Estado de pago</span>
-                        <p>{formatStatus(reservation.paymentStatus)}</p>
+                        <span className="admin-label">
+                          Estado de pago
+                        </span>
+
+                        <p>
+                          {formatStatus(
+                            reservation.paymentStatus
+                          )}
+                        </p>
                       </div>
                     </div>
 
@@ -842,34 +1139,39 @@ function AdminReservations() {
                           className="secondary-button"
                           href={whatsappLink}
                           target="_blank"
-                          rel="noreferrer"
+                          rel="noopener noreferrer"
                         >
                           Abrir WhatsApp
                         </a>
                       )}
 
-                      <button
-                        className="primary-button"
-                        onClick={() => handleMarkAsPaid(reservation.id)}
-                        disabled={
-                          reservation.status === 'paid' ||
-                          reservation.status === 'cancelled' ||
-                          reservation.status === 'expired'
-                        }
-                      >
-                        Marcar como pagada
-                      </button>
+                      {/* Nunca mostrar acciones de modificación
+                          en reservas canceladas o vencidas. */}
+                      {!isHistoryReservation && (
+                        <>
+                          {canEventuallyMarkPaid && (
+                            <button
+                              type="button"
+                              className="primary-button"
+                              disabled
+                              title="Temporalmente deshabilitado por seguridad"
+                            >
+                              Marcar como pagada
+                            </button>
+                          )}
 
-                      <button
-                        className="secondary-button"
-                        onClick={() => openCancelModal(reservation)}
-                        disabled={
-                          reservation.status === 'cancelled' ||
-                          reservation.status === 'expired'
-                        }
-                      >
-                        Cancelar reserva
-                      </button>
+                          {canEventuallyCancel && (
+                            <button
+                              type="button"
+                              className="secondary-button"
+                              disabled
+                              title="Temporalmente deshabilitado por seguridad"
+                            >
+                              Cancelar reserva
+                            </button>
+                          )}
+                        </>
+                      )}
                     </div>
                   </article>
                 );
@@ -877,72 +1179,6 @@ function AdminReservations() {
             </div>
           )}
         </>
-      )}
-
-      {reservationToCancel && (
-        <div className="admin-modal-overlay" onClick={closeCancelModal}>
-          <div
-            className="admin-modal"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="admin-modal-header">
-              <h3>Cancelar reserva</h3>
-              <button
-                type="button"
-                className="admin-modal-close"
-                onClick={closeCancelModal}
-                disabled={isCancelling}
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="admin-modal-body">
-              <p>
-                ¿Estás seguro que querés cancelar esta reserva?
-              </p>
-
-              <div className="admin-modal-reservation-info">
-                <p>
-                  <strong>Cancha:</strong> {reservationToCancel.courtName || 'Cancha'}
-                </p>
-                <p>
-                  <strong>Cliente:</strong> {reservationToCancel.customerName || 'Sin nombre'}
-                </p>
-                <p>
-                  <strong>Fecha:</strong> {reservationToCancel.date}
-                </p>
-                <p>
-                  <strong>Horario:</strong> {reservationToCancel.schedule}
-                </p>
-              </div>
-
-              <p className="admin-modal-warning">
-                Esta acción la mueve al historial y no se puede deshacer desde el panel.
-              </p>
-            </div>
-
-            <div className="admin-modal-actions">
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={closeCancelModal}
-                disabled={isCancelling}
-              >
-                Volver
-              </button>
-
-              <button
-                type="button"
-                className="primary-button danger-button"
-                onClick={confirmCancelReservation}
-                disabled={isCancelling}
-              >
-                {isCancelling ? 'Cancelando...' : 'Sí, cancelar'}
-              </button>
-            </div>
-          </div>
-        </div>
       )}
     </section>
   );
