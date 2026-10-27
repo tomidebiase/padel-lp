@@ -1,0 +1,175 @@
+
+/* PADELLP - NAVBAR RESPONSIVE */
+
+.pl-navbar-header {
+  width: 100%;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(255, 255, 255, 0.97);
+  border-bottom: 1px solid #e2e8f0;
+  backdrop-filter: blur(12px);
+}
+
+.pl-navbar-header .pl-navbar {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 15px 20px;
+}
+
+.pl-navbar-header .pl-navbar-brand {
+  min-width: 0;
+  text-decoration: none;
+}
+
+.pl-navbar-header .pl-navbar-brand h2 {
+  margin: 0;
+  color: #2563eb;
+  font-size: 30px;
+  font-weight: 900;
+  letter-spacing: -1px;
+  white-space: nowrap;
+}
+
+.pl-navbar-header .pl-navbar-links {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: nowrap;
+  min-width: 0;
+  gap: 8px;
+}
+
+.pl-navbar-header .pl-navbar-links .nav-item {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 13px;
+  border-radius: 999px;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.pl-navbar-header .pl-navbar-links .nav-item:hover {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.pl-navbar-header .pl-navbar-links .nav-item.active {
+  background: #e8f0ff;
+  color: #1d4ed8;
+  box-shadow: inset 0 0 0 1px #c7d2fe;
+}
+
+/* ICONO DEL CARRITO */
+
+.pl-navbar-header .pl-navbar-cart {
+  position: relative;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  flex-shrink: 0;
+  width: 43px;
+  height: 43px;
+  border-radius: 12px;
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #dbeafe;
+  text-decoration: none;
+}
+
+.pl-navbar-header .pl-navbar-cart:hover,
+.pl-navbar-header .pl-navbar-cart.active {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.pl-navbar-header .pl-navbar-cart-badge {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #2563eb;
+  color: white;
+  font-size: 11px;
+  font-weight: 900;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+}
+
+/* CELULARES */
+
+@media (max-width: 700px) {
+  .pl-navbar-header .pl-navbar {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 5px;
+    padding: 12px 11px;
+  }
+
+  .pl-navbar-header .pl-navbar-brand h2 {
+    font-size: 22px;
+    letter-spacing: -0.8px;
+  }
+
+  .pl-navbar-header .pl-navbar-links {
+    justify-content: flex-end;
+    gap: 0;
+    flex-wrap: nowrap;
+  }
+
+  .pl-navbar-header .pl-navbar-links .nav-item {
+    min-height: 35px;
+    padding: 0 5px;
+    font-size: 12px;
+    border-radius: 9px;
+  }
+
+  .pl-navbar-header .pl-navbar-cart {
+    width: 39px;
+    height: 39px;
+    border-radius: 10px;
+  }
+
+  .pl-navbar-header .pl-navbar-cart svg {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+/* CELULARES MUY CHICOS */
+
+@media (max-width: 360px) {
+  .pl-navbar-header .pl-navbar {
+    gap: 3px;
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .pl-navbar-header .pl-navbar-brand h2 {
+    font-size: 19px;
+  }
+
+  .pl-navbar-header .pl-navbar-links .nav-item {
+    padding: 0 3px;
+    font-size: 11px;
+  }
+
+  .pl-navbar-header .pl-navbar-cart {
+    width: 35px;
+    height: 35px;
+  }
+}
