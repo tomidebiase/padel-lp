@@ -1,0 +1,816 @@
+
+/* ==========================================
+   PADELLP - NUEVA HOME
+   Diseño deportivo premium
+========================================== */
+
+.pl-home {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: visible;
+}
+
+/* HERO */
+
+.pl-home-hero {
+  position: relative;
+  min-height: 600px;
+  border-radius: 25px;
+  overflow: hidden;
+  background: #071629;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.pl-home-hero-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  z-index: -2;
+}
+
+.pl-home-hero-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(4, 13, 31, 0.96) 0%,
+      rgba(7, 25, 57, 0.88) 44%,
+      rgba(6, 20, 43, 0.25) 100%
+    ),
+    linear-gradient(
+      0deg,
+      rgba(4, 13, 31, 0.9),
+      transparent 40%
+    );
+}
+
+.pl-home-hero-content {
+  max-width: 760px;
+  padding: 82px 65px 40px;
+}
+
+.pl-home-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #bfdbfe;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 2.5px;
+  margin-bottom: 26px;
+}
+
+.pl-home-eyebrow-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #60a5fa;
+  box-shadow: 0 0 0 5px rgba(96, 165, 250, 0.15);
+}
+
+.pl-home-hero h1 {
+  margin: 0 0 23px;
+  color: #fff;
+  font-size: clamp(45px, 6vw, 73px);
+  font-weight: 900;
+  letter-spacing: -3.1px;
+  line-height: 1.045;
+}
+
+.pl-home-hero h1 span {
+  color: #8dbdff;
+}
+
+.pl-home-hero-content p {
+  max-width: 510px;
+  margin: 0 0 33px;
+  color: #dae6f5;
+  font-size: 16px;
+  line-height: 1.8;
+}
+
+.pl-home-hero-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 13px;
+}
+
+.pl-home-hero-primary,
+.pl-home-hero-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 19px;
+  border-radius: 11px;
+  padding: 16px 22px;
+  font-size: 14px;
+  font-weight: 800;
+  text-decoration: none;
+  transition:
+    transform 0.2s,
+    background 0.2s,
+    border-color 0.2s;
+}
+
+.pl-home-hero-primary {
+  background: #fff;
+  color: #1747a7;
+}
+
+.pl-home-hero-secondary {
+  border: 1px solid rgba(255, 255, 255, 0.43);
+  background: rgba(255, 255, 255, 0.07);
+  color: #fff;
+}
+
+.pl-home-hero-primary:hover,
+.pl-home-hero-secondary:hover {
+  transform: translateY(-3px);
+}
+
+.pl-home-hero-primary:hover {
+  background: #e8f1ff;
+}
+
+.pl-home-hero-secondary:hover {
+  background: rgba(255, 255, 255, 0.17);
+}
+
+.pl-home-hero-primary span,
+.pl-home-hero-secondary span {
+  font-size: 20px;
+}
+
+.pl-home-hero-bottom {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  margin: 15px 65px 34px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.24);
+}
+
+.pl-home-hero-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.pl-home-hero-stat strong {
+  color: #fff;
+  font-size: 30px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.pl-home-hero-stat span {
+  color: #c4d3e9;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.pl-home-hero-scroll {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+  color: #d4e1f3;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.8px;
+}
+
+.pl-home-hero-scroll span {
+  font-size: 21px;
+}
+
+/* ENCABEZADOS DE SECCIÓN */
+
+.pl-home-section-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 30px;
+  margin-bottom: 28px;
+}
+
+.pl-home-section-eyebrow {
+  display: block;
+  margin-bottom: 13px;
+  color: #2563eb;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 2px;
+}
+
+.pl-home-section-header h2 {
+  margin: 0 0 12px;
+  color: #0f172a;
+  font-size: clamp(28px, 3.9vw, 41px);
+  font-weight: 900;
+  letter-spacing: -1.2px;
+  line-height: 1.14;
+}
+
+.pl-home-section-header p {
+  margin: 0;
+  color: #64748b;
+  font-size: 15px;
+}
+
+.pl-home-all-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+  padding: 13px 17px;
+  border: 1px solid #d6e3f5;
+  border-radius: 10px;
+  background: #fff;
+  color: #1d4ed8;
+  font-size: 13px;
+  font-weight: 800;
+  transition: transform 0.2s;
+}
+
+.pl-home-all-link:hover {
+  transform: translateY(-2px);
+}
+
+.pl-home-all-link span {
+  font-size: 18px;
+}
+
+/* CLUBES */
+
+.pl-home-clubs {
+  padding: 65px 0 55px;
+}
+
+.pl-home-clubs-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.pl-home-club-card {
+  position: relative;
+  min-height: 355px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  border-radius: 20px;
+  background: #112f58;
+  isolation: isolate;
+  transition:
+    transform 0.25s,
+    box-shadow 0.25s;
+}
+
+.pl-home-club-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 24px 42px rgba(15, 23, 42, 0.18);
+}
+
+.pl-home-club-card > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: -2;
+  transition: transform 0.5s;
+}
+
+.pl-home-club-card:hover > img {
+  transform: scale(1.08);
+}
+
+.pl-home-club-shade {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    to bottom,
+    rgba(7, 19, 40, 0.4) 0%,
+    rgba(7, 19, 40, 0.08) 35%,
+    rgba(4, 15, 35, 0.95) 100%
+  );
+}
+
+.pl-home-club-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px;
+}
+
+.pl-home-club-top > span:first-child {
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+}
+
+.pl-home-club-demo {
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.95);
+  color: #1947a0;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.6px;
+}
+
+.pl-home-club-content {
+  padding: 22px;
+}
+
+.pl-home-club-location {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  color: #d4e4ff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.pl-home-club-location span {
+  color: #60a5fa;
+  font-size: 9px;
+}
+
+.pl-home-club-content h3 {
+  margin: 0 0 22px;
+  color: #fff;
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: -0.7px;
+  line-height: 1.2;
+}
+
+.pl-home-club-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.pl-home-club-bottom > span:first-child {
+  color: #e1ebfc;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.pl-home-club-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 35px;
+  height: 35px;
+  border-radius: 50%;
+  background: #fff;
+  color: #1747a7;
+  font-size: 20px;
+  font-weight: 800;
+  transition: transform 0.2s;
+}
+
+.pl-home-club-card:hover .pl-home-club-arrow {
+  transform: translate(2px, -2px);
+}
+
+.pl-home-photo-disclaimer {
+  margin: 15px 0 0;
+  color: #94a3b8;
+  text-align: center;
+  font-size: 11px;
+}
+
+/* CÓMO FUNCIONA */
+
+.pl-home-steps-section {
+  padding: 20px 0 65px;
+}
+
+.pl-home-steps-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 19px;
+}
+
+.pl-home-step {
+  padding: 27px;
+  border: 1px solid #dce5f2;
+  border-radius: 19px;
+  background: #fff;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
+}
+
+.pl-home-step:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 15px 35px rgba(15, 23, 42, 0.07);
+}
+
+.pl-home-step-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 35px;
+}
+
+.pl-home-step-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 49px;
+  height: 49px;
+  border-radius: 13px;
+  background: #edf4ff;
+  color: #2563eb;
+  font-size: 27px;
+  font-weight: 800;
+}
+
+.pl-home-step-number {
+  color: #cbd5e1;
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: -1px;
+}
+
+.pl-home-step h3 {
+  margin: 0 0 12px;
+  color: #0f172a;
+  font-size: 19px;
+  font-weight: 850;
+  letter-spacing: -0.4px;
+}
+
+.pl-home-step p {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+/* SECCIÓN TIENDA */
+
+.pl-home-shop {
+  display: flex;
+  min-height: 345px;
+  overflow: hidden;
+  border-radius: 23px;
+  background: #0c2146;
+}
+
+.pl-home-shop-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  flex: 1;
+  padding: 48px 55px;
+}
+
+.pl-home-shop-eyebrow {
+  color: #93c5fd;
+  margin-bottom: 15px;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 2.4px;
+}
+
+.pl-home-shop h2 {
+  margin: 0 0 16px;
+  color: #fff;
+  font-size: clamp(30px, 4vw, 43px);
+  font-weight: 900;
+  line-height: 1.13;
+  letter-spacing: -1px;
+}
+
+.pl-home-shop p {
+  max-width: 440px;
+  margin: 0 0 25px;
+  color: #c4d4eb;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.pl-home-shop-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 20px;
+  padding: 14px 20px;
+  border-radius: 10px;
+  background: #fff;
+  color: #1e40af;
+  font-size: 13px;
+  font-weight: 800;
+  transition:
+    background 0.2s,
+    transform 0.2s;
+}
+
+.pl-home-shop-button:hover {
+  background: #e7efff;
+  transform: translateY(-2px);
+}
+
+.pl-home-shop-button span {
+  font-size: 19px;
+}
+
+.pl-home-shop-art {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42%;
+  min-height: 345px;
+  overflow: hidden;
+  background:
+    radial-gradient(
+      circle at center,
+      rgba(66, 133, 244, 0.35),
+      transparent 62%
+    ),
+    repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 23px,
+      rgba(255, 255, 255, 0.035) 24px
+    );
+}
+
+.pl-home-shop-circle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  width: 240px;
+  height: 240px;
+  border: 2px solid rgba(191, 219, 254, 0.4);
+  border-radius: 50%;
+  transform: rotate(-12deg);
+}
+
+.pl-home-shop-circle span {
+  color: #b6d0ff;
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: 8px;
+}
+
+.pl-home-shop-circle strong {
+  color: #fff;
+  font-size: 84px;
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: -7px;
+}
+
+.pl-home-shop-art-label {
+  position: absolute;
+  bottom: 22px;
+  right: 25px;
+  color: #a9c6ef;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 2px;
+}
+
+/* CONTACTO */
+
+.pl-home-contact {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 30px;
+  padding: 65px 5px 20px;
+}
+
+.pl-home-contact h2 {
+  margin: 0 0 10px;
+  font-size: clamp(24px, 3vw, 32px);
+  color: #0f172a;
+  font-weight: 900;
+  letter-spacing: -0.9px;
+}
+
+.pl-home-contact p {
+  margin: 0;
+  max-width: 570px;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.pl-home-contact-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 23px;
+  flex-shrink: 0;
+  padding: 15px 20px;
+  border-radius: 10px;
+  background: #2563eb;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  transition:
+    background 0.2s,
+    transform 0.2s;
+}
+
+.pl-home-contact-button:hover {
+  background: #1d4ed8;
+  transform: translateY(-2px);
+}
+
+.pl-home-contact-button span {
+  font-size: 19px;
+}
+
+/* RESPONSIVE */
+
+@media (max-width: 900px) {
+  .pl-home-hero {
+    min-height: 560px;
+  }
+
+  .pl-home-hero-content {
+    padding: 65px 40px 35px;
+  }
+
+  .pl-home-hero-bottom {
+    margin-left: 40px;
+    margin-right: 40px;
+  }
+
+  .pl-home-clubs-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pl-home-steps-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pl-home-step-top {
+    margin-bottom: 20px;
+  }
+
+  .pl-home-shop-content {
+    padding: 40px 35px;
+  }
+}
+
+@media (max-width: 600px) {
+  .pl-home-hero {
+    min-height: 620px;
+    border-radius: 18px;
+  }
+
+  .pl-home-hero-overlay {
+    background:
+      linear-gradient(
+        90deg,
+        rgba(4, 13, 31, 0.96),
+        rgba(4, 13, 31, 0.58)
+      ),
+      linear-gradient(
+        0deg,
+        rgba(4, 13, 31, 0.82),
+        transparent 45%
+      );
+  }
+
+  .pl-home-hero-content {
+    padding: 50px 25px 25px;
+  }
+
+  .pl-home-hero h1 {
+    font-size: clamp(41px, 9vw, 52px);
+    letter-spacing: -1.8px;
+  }
+
+  .pl-home-hero-content p {
+    font-size: 14px;
+  }
+
+  .pl-home-hero-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .pl-home-hero-primary,
+  .pl-home-hero-secondary {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .pl-home-hero-bottom {
+    margin: 15px 25px 25px;
+    gap: 22px;
+  }
+
+  .pl-home-hero-stat strong {
+    font-size: 24px;
+  }
+
+  .pl-home-hero-scroll {
+    display: none;
+  }
+
+  .pl-home-clubs {
+    padding: 43px 0;
+  }
+
+  .pl-home-section-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .pl-home-clubs-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pl-home-club-card {
+    min-height: 365px;
+  }
+
+  .pl-home-all-link {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .pl-home-steps-section {
+    padding-bottom: 45px;
+  }
+
+  .pl-home-shop {
+    flex-direction: column;
+    border-radius: 18px;
+  }
+
+  .pl-home-shop-content {
+    padding: 35px 27px;
+  }
+
+  .pl-home-shop-art {
+    width: 100%;
+    min-height: 210px;
+  }
+
+  .pl-home-shop-circle {
+    width: 165px;
+    height: 165px;
+  }
+
+  .pl-home-shop-circle strong {
+    font-size: 59px;
+  }
+
+  .pl-home-shop-circle span {
+    font-size: 13px;
+  }
+
+  .pl-home-contact {
+    padding: 45px 0 15px;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .pl-home-contact-button {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pl-home * {
+    transition: none !important;
+  }
+}

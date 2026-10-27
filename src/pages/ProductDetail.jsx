@@ -1,11 +1,27 @@
-import { useContext, useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+
+import {
+  useContext,
+  useEffect,
+  useState,
+} from 'react';
+
+import {
+  Link,
+  useParams,
+} from 'react-router-dom';
+
 import { CartContext } from '../context/CartContext';
 import { getProductById } from '../firebase/products';
 
+import './Products.css';
+
+function formatPrice(price) {
+  return Number(price || 0).toLocaleString('es-AR');
+}
+
 function ProductDetail() {
-  const navigate = useNavigate();
   const { id } = useParams();
+
   const { addProductToCart } = useContext(CartContext);
 
   const [product, setProduct] = useState(null);
@@ -14,47 +30,70 @@ function ProductDetail() {
   const [message, setMessage] = useState('');
 
   useEffect(() => {
+    let cancelled = false;
+
     const loadProduct = async () => {
+      setIsLoading(true);
+
       try {
-        setIsLoading(true);
         const data = await getProductById(id);
-        setProduct(data || null);
+
+        if (!cancelled) {
+          setProduct(data || null);
+          setQuantity(1);
+          setMessage('');
+        }
       } catch (error) {
         console.error('Error cargando producto:', error);
-        setProduct(null);
+
+        if (!cancelled) {
+          setProduct(null);
+        }
       } finally {
-        setIsLoading(false);
+        if (!cancelled) {
+          setIsLoading(false);
+        }
       }
     };
 
     loadProduct();
+
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
-  const handleGoBack = () => {
-    navigate(-1);
-  };
-
   const handleDecrease = () => {
-    setQuantity((prev) => (prev > 1 ? prev - 1 : 1));
+    setQuantity((previous) =>
+      Math.max(1, previous - 1)
+    );
   };
 
   const handleIncrease = () => {
     if (!product) return;
-    setQuantity((prev) => (prev < product.stock ? prev + 1 : prev));
+
+    setQuantity((previous) =>
+      Math.min(Number(product.stock || 0), previous + 1)
+    );
   };
 
   const handleAddToCart = () => {
     if (!product || product.stock <= 0) return;
 
     addProductToCart(product, quantity);
-    setMessage('Producto agregado al carrito.');
+
+    setMessage(
+      `${quantity} ${
+        quantity === 1 ? 'producto agregado' : 'productos agregados'
+      } al carrito de demostración.`
+    );
   };
 
   if (isLoading) {
     return (
-      <section>
-        <div className="checkout-form-card">
-          <p>Cargando producto...</p>
+      <section className="pl-product-detail-page">
+        <div className="pl-product-detail-state">
+          Cargando producto...
         </div>
       </section>
     );
@@ -62,94 +101,219 @@ function ProductDetail() {
 
   if (!product) {
     return (
-      <section>
-        <div className="checkout-form-card">
+      <section className="pl-product-detail-page">
+        <div className="pl-product-detail-state">
           <h1>Producto no encontrado</h1>
 
-          <div className="detail-actions">
-            <button className="secondary-button" onClick={handleGoBack}>
-              ← Volver
-            </button>
-          </div>
+          <p>
+            No pudimos encontrar el producto que buscás.
+          </p>
+
+          <Link
+            to="/productos"
+            className="pl-product-detail-primary"
+          >
+            Volver a productos →
+          </Link>
         </div>
       </section>
     );
   }
 
+  const stock = Number(product.stock || 0);
+  const hasStock = stock > 0;
+
   return (
-    <section className="product-detail-page">
-      <div className="product-detail-card">
-        <div className="product-detail-image-wrapper">
-          <img
-            src={product.image}
-            alt={product.name}
-            className="product-detail-image"
-          />
+    <section className="pl-product-detail-page">
+      <div className="pl-product-breadcrumb">
+        <Link to="/productos">Productos</Link>
+
+        <span>/</span>
+
+        <Link
+          to={`/productos?category=${product.category}`}
+        >
+          {product.category === 'paletas'
+            ? 'Paletas'
+            : 'Pelotas'}
+        </Link>
+
+        <span>/</span>
+        <span>{product.name}</span>
+      </div>
+
+      <div className="pl-product-detail-layout">
+        {/* IMAGEN */}
+        <div className="pl-product-detail-gallery">
+          <div className="pl-product-detail-photo">
+            <span className="pl-product-photo-badge">
+              PRODUCTO DEMO
+            </span>
+
+            <img
+              src={product.image}
+              alt={product.name}
+            />
+          </div>
+
+          <div className="pl-product-gallery-footer">
+            <span>
+              PADELLP / SPORTS EQUIPMENT
+            </span>
+
+            <span>
+              {product.brand.toUpperCase()}
+            </span>
+          </div>
         </div>
 
-        <div className="product-detail-content">
-          <p className="product-detail-brand">{product.brand}</p>
-          <h1>{product.name}</h1>
-          <p className="product-detail-price">
-            ${Number(product.price).toLocaleString('es-AR')}
-          </p>
-          <p className="product-detail-description">{product.description}</p>
+        {/* INFORMACIÓN */}
+        <div className="pl-product-detail-information">
+          <span className="pl-product-detail-overline">
+            {product.category === 'paletas'
+              ? 'EQUIPAMIENTO / PALETAS'
+              : 'EQUIPAMIENTO / PELOTAS'}
+          </span>
 
-          <div className="product-detail-meta">
+          <p className="pl-product-detail-brand">
+            {product.brand}
+          </p>
+
+          <h1>{product.name}</h1>
+
+          <p className="pl-product-detail-description">
+            {product.description}
+          </p>
+
+          <div className="pl-product-detail-price">
+            <span>PRECIO DE REFERENCIA</span>
+
+            <strong>
+              ${formatPrice(product.price)}
+            </strong>
+          </div>
+
+          <div className="pl-product-detail-features">
+            <div>
+              <span>CATEGORÍA</span>
+
+              <strong>
+                {product.category === 'paletas'
+                  ? 'Paletas'
+                  : 'Pelotas'}
+              </strong>
+            </div>
+
+            <div>
+              <span>STOCK DEMO</span>
+
+              <strong>
+                {hasStock
+                  ? `${stock} unidades`
+                  : 'Sin stock'}
+              </strong>
+            </div>
+          </div>
+
+          <div className="pl-product-detail-demo-notice">
+            <span
+              className="pl-product-detail-demo-icon"
+              aria-hidden="true"
+            >
+              i
+            </span>
+
             <p>
-              <strong>Categoría:</strong> {product.category}
-            </p>
-            <p>
-              <strong>Stock:</strong> {product.stock}
+              Estás viendo un producto de demostración.
+              Podés agregarlo al carrito para explorar
+              la experiencia, pero las compras y pagos
+              reales todavía no están habilitados.
             </p>
           </div>
 
-          {message && <p className="checkout-message">{message}</p>}
+          {message && (
+            <div
+              className="pl-product-detail-success"
+              role="status"
+            >
+              <strong>{message}</strong>
 
-          {product.stock > 0 ? (
-            <div className="product-quantity-box">
-              <span className="product-quantity-label">Cantidad</span>
-
-              <div className="product-quantity-controls">
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={handleDecrease}
-                >
-                  -
-                </button>
-
-                <span className="product-quantity-value">{quantity}</span>
-
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={handleIncrease}
-                >
-                  +
-                </button>
-              </div>
-
-              <button
-                type="button"
-                className="primary-button"
-                onClick={handleAddToCart}
-              >
-                Agregar al carrito
-              </button>
-            </div>
-          ) : (
-            <div className="checkout-form-card">
-              <p>Producto sin stock.</p>
+              <Link to="/carrito">
+                Ir al carrito →
+              </Link>
             </div>
           )}
 
-          <div className="detail-actions">
-            <button className="secondary-button" onClick={handleGoBack}>
-              ← Volver
-            </button>
-          </div>
+          {hasStock ? (
+            <div className="pl-product-detail-buy">
+              <span className="pl-product-quantity-label">
+                CANTIDAD
+              </span>
+
+              <div className="pl-product-detail-buy-row">
+                <div className="pl-product-quantity-control">
+                  <button
+                    type="button"
+                    onClick={handleDecrease}
+                    disabled={quantity <= 1}
+                    aria-label="Disminuir cantidad"
+                  >
+                    −
+                  </button>
+
+                  <span>{quantity}</span>
+
+                  <button
+                    type="button"
+                    onClick={handleIncrease}
+                    disabled={quantity >= stock}
+                    aria-label="Aumentar cantidad"
+                  >
+                    +
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  className="pl-product-add-button"
+                  onClick={handleAddToCart}
+                >
+                  Agregar al carrito
+                  <span aria-hidden="true">↗</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="pl-product-detail-no-stock">
+              Producto sin stock en la demostración.
+            </div>
+          )}
+
+          <Link
+            to="/productos"
+            className="pl-product-back-link"
+          >
+            ← Seguir explorando productos
+          </Link>
         </div>
+      </div>
+
+      {/* MÁS OPCIONES */}
+      <div className="pl-product-detail-bottom">
+        <div>
+          <span>SEGUÍ EXPLORANDO</span>
+
+          <h2>El próximo punto es tuyo.</h2>
+
+          <p>
+            Conocé los clubes y las canchas
+            que forman parte de PadelLP.
+          </p>
+        </div>
+
+        <Link to="/clubes">
+          Explorar clubes ↗
+        </Link>
       </div>
     </section>
   );

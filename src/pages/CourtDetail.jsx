@@ -6,7 +6,7 @@ import {
 } from 'react';
 
 import {
-  useNavigate,
+  Link,
   useParams,
 } from 'react-router-dom';
 
@@ -16,25 +16,35 @@ import {
   getReservationsByCourt,
 } from '../firebase/reservations';
 
-const clubsData = [
+import './Courts.css';
+
+const DEMO_MODE = true;
+
+const clubs = [
   {
     clubId: '1',
     clubName: 'Padel Center La Plata',
     location: 'La Plata',
+    image:
+      'https://images.unsplash.com/photo-1658491830143-72808ca237e3?auto=format&fit=crop&w=1600&q=85',
   },
   {
     clubId: '2',
     clubName: 'Arena Padel City Bell',
     location: 'City Bell',
+    image:
+      'https://images.unsplash.com/photo-1709587824751-dd30420f5cf3?auto=format&fit=crop&w=1600&q=85',
   },
   {
     clubId: '3',
     clubName: 'Gonnet Padel Club',
     location: 'Gonnet',
+    image:
+      'https://images.unsplash.com/photo-1709587824645-cf6dd2041e2b?auto=format&fit=crop&w=1600&q=85',
   },
 ];
 
-const courtsData = clubsData.flatMap(
+const courts = clubs.flatMap(
   (club, clubIndex) =>
     Array.from({ length: 4 }, (_, courtIndex) => ({
       id: String(clubIndex * 4 + courtIndex + 1),
@@ -42,7 +52,9 @@ const courtsData = clubsData.flatMap(
       clubName: club.clubName,
       courtId: `cancha-${courtIndex + 1}`,
       name: `Cancha ${courtIndex + 1}`,
+      number: String(courtIndex + 1).padStart(2, '0'),
       location: club.location,
+      image: club.image,
       price: 40000,
     }))
 );
@@ -101,13 +113,8 @@ function isPastSchedule(dateString, schedule) {
   const now = new Date();
   const today = getLocalDateString(now);
 
-  if (dateString < today) {
-    return true;
-  }
-
-  if (dateString > today) {
-    return false;
-  }
+  if (dateString < today) return true;
+  if (dateString > today) return false;
 
   const [startTime] = schedule.split(' - ');
 
@@ -115,20 +122,14 @@ function isPastSchedule(dateString, schedule) {
     .split(':')
     .map(Number);
 
-  const startDate = new Date(now);
+  const scheduleStart = new Date(now);
 
-  startDate.setHours(
-    hours,
-    minutes,
-    0,
-    0
-  );
+  scheduleStart.setHours(hours, minutes, 0, 0);
 
-  return startDate <= now;
+  return scheduleStart <= now;
 }
 
 function CourtDetail() {
-  const navigate = useNavigate();
   const { id } = useParams();
 
   const {
@@ -136,7 +137,7 @@ function CourtDetail() {
     isSlotInCart,
   } = useContext(CartContext);
 
-  const court = courtsData.find(
+  const court = courts.find(
     (item) => item.id === id
   );
 
@@ -152,21 +153,18 @@ function CourtDetail() {
   const [
     availabilityStatus,
     setAvailabilityStatus,
-  ] = useState('loading');
+  ] = useState(
+    DEMO_MODE ? 'demo' : 'loading'
+  );
 
   const [message, setMessage] = useState('');
 
-  const handleGoBack = () => {
-    navigate(-1);
-  };
-
   useEffect(() => {
-    if (!court) return;
+    if (!court || DEMO_MODE) return;
 
     let cancelled = false;
 
     const fetchReservations = async () => {
-      // Mientras se consulta, no ofrecemos turnos.
       setAvailabilityStatus('loading');
       setConfirmedSchedules([]);
 
@@ -179,11 +177,12 @@ function CourtDetail() {
 
         if (cancelled) return;
 
-        const occupiedSchedules = reservations.map(
-          (reservation) => reservation.schedule
+        setConfirmedSchedules(
+          reservations.map(
+            (reservation) => reservation.schedule
+          )
         );
 
-        setConfirmedSchedules(occupiedSchedules);
         setAvailabilityStatus('ready');
       } catch (error) {
         console.error(
@@ -208,35 +207,30 @@ function CourtDetail() {
   const handleReserve = (schedule) => {
     setMessage('');
 
-    if (!court) return;
+    if (!court || DEMO_MODE) {
+      return;
+    }
 
-    // Nunca permitir seleccionar un horario
-    // si no se confirmó la disponibilidad.
     if (availabilityStatus !== 'ready') {
       setMessage(
-        'Todavía no podemos verificar este horario. ' +
-        'Intentá nuevamente más tarde.'
+        'No pudimos confirmar la disponibilidad.'
       );
       return;
     }
 
     if (selectedDate < getLocalDateString()) {
       setMessage(
-        'No podés reservar una fecha anterior a hoy.'
+        'No podés elegir una fecha anterior a hoy.'
       );
       return;
     }
 
-    if (confirmedSchedules.includes(schedule)) {
+    if (
+      confirmedSchedules.includes(schedule) ||
+      isPastSchedule(selectedDate, schedule)
+    ) {
       setMessage(
-        'Ese horario ya no está disponible.'
-      );
-      return;
-    }
-
-    if (isPastSchedule(selectedDate, schedule)) {
-      setMessage(
-        'Ese horario ya pasó y no está disponible.'
+        'Ese horario no está disponible.'
       );
       return;
     }
@@ -250,7 +244,7 @@ function CourtDetail() {
       )
     ) {
       setMessage(
-        'Ese horario ya lo agregaste al carrito.'
+        'Ese horario ya está en tu carrito.'
       );
       return;
     }
@@ -261,8 +255,8 @@ function CourtDetail() {
         clubId: String(court.clubId),
         clubName: court.clubName,
         courtId: court.courtId,
-        name: court.name,
         courtName: court.name,
+        name: court.name,
         location: court.location,
         date: selectedDate,
         schedule,
@@ -272,229 +266,366 @@ function CourtDetail() {
       if (result?.success === false) {
         setMessage(
           result.message ||
-          'No se pudo agregar el turno.'
+          'No se pudo agregar el horario.'
         );
         return;
       }
 
-      setMessage(
-        'Horario agregado al carrito.'
-      );
+      setMessage('Horario agregado al carrito.');
     } catch (error) {
       console.error(
-        'Error al agregar el turno:',
+        'Error al agregar reserva:',
         error
       );
 
       setMessage(
-        'No se pudo agregar el turno al carrito.'
+        'No se pudo agregar el turno.'
       );
     }
   };
 
   if (!court) {
     return (
-      <section className="court-detail-page">
-        <h1>Cancha no encontrada</h1>
+      <section className="pl-detail-page">
+        <div className="pl-courts-not-found">
+          <h1>Cancha no encontrada</h1>
 
-        <div className="detail-actions">
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={handleGoBack}
+          <Link
+            to="/clubes"
+            className="pl-courts-button"
           >
-            ← Volver
-          </button>
+            Volver a clubes →
+          </Link>
         </div>
       </section>
     );
   }
 
   return (
-    <section className="court-detail-page">
-      <div className="court-detail-header">
-        <div className="court-detail-badge">
-          Reserva de turno
-        </div>
+    <section className="pl-detail-page">
+      <div className="pl-detail-breadcrumb">
+        <Link to="/clubes">Clubes</Link>
+        <span>/</span>
 
-        <h1 className="court-title">
-          {court.name}
-        </h1>
+        <Link to={`/club/${court.clubId}`}>
+          {court.clubName}
+        </Link>
 
-        <p className="court-subtitle">
-          {court.clubName} · {court.location}
-        </p>
+        <span>/</span>
+        <span>{court.name}</span>
       </div>
 
-      <div className="court-info-grid">
-        <div className="court-info-box">
-          <span className="court-info-label">
-            Precio
+      <div className="pl-detail-hero">
+        <img
+          src={court.image}
+          alt=""
+          aria-hidden="true"
+          className="pl-detail-hero-image"
+        />
+
+        <div className="pl-detail-hero-overlay" />
+
+        <div className="pl-detail-hero-content">
+          <span className="pl-detail-eyebrow">
+            PADELLP / EXPERIENCIA DE CANCHA
           </span>
+
+          <h1>{court.name}</h1>
 
           <p>
-            ${court.price.toLocaleString('es-AR')} por turno
+            {court.clubName} · {court.location}
           </p>
-        </div>
 
-        <div className="court-info-box">
-          <span className="court-info-label">
-            Duración
+          <div className="pl-detail-hero-tags">
+            <span>90 MINUTOS</span>
+            <span>CANCHA {court.number}</span>
+            <span>VERSIÓN DEMO</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="pl-detail-metrics">
+        <div className="pl-detail-metric">
+          <span className="pl-detail-metric-icon">
+            ◫
           </span>
 
-          <p>1 hora y 30 minutos</p>
+          <div>
+            <span>CANCHA</span>
+            <strong>{court.name}</strong>
+          </div>
+        </div>
+
+        <div className="pl-detail-metric">
+          <span className="pl-detail-metric-icon">
+            ◷
+          </span>
+
+          <div>
+            <span>DURACIÓN</span>
+            <strong>1 h 30 min</strong>
+          </div>
+        </div>
+
+        <div className="pl-detail-metric">
+          <span className="pl-detail-metric-icon">
+            $
+          </span>
+
+          <div>
+            <span>PRECIO POR TURNO</span>
+
+            <strong>
+              ${court.price.toLocaleString('es-AR')}
+            </strong>
+          </div>
         </div>
       </div>
 
-      <div className="court-schedules-section">
-        <h2 className="schedules-title">
-          Elegí tu día y horario
-        </h2>
+      <div className="pl-detail-layout">
+        <div className="pl-detail-main">
+          <div className="pl-detail-section-header">
+            <span className="pl-detail-overline">
+              PLANIFICÁ TU PARTIDO
+            </span>
 
-        <p className="schedules-helper">
-          Primero seleccioná un día y después un
-          bloque disponible.
-        </p>
+            <h2>Explorá día y horario.</h2>
 
-        {message && (
-          <p role="status">
-            {message}
-          </p>
-        )}
-
-        <div className="date-picker-wrapper">
-          <label
-            htmlFor="reservation-date"
-            className="date-picker-label"
-          >
-            Día
-          </label>
-
-          <input
-            id="reservation-date"
-            type="date"
-            className="date-picker-input"
-            value={selectedDate}
-            min={getLocalDateString()}
-            onChange={(event) => {
-              setAvailabilityStatus('loading');
-              setConfirmedSchedules([]);
-              setSelectedDate(event.target.value);
-              setMessage('');
-            }}
-          />
-        </div>
-
-        {availabilityStatus === 'loading' && (
-          <p
-            role="status"
-            style={{
-              padding: '14px',
-              marginTop: '16px',
-            }}
-          >
-            Verificando disponibilidad de horarios...
-          </p>
-        )}
-
-        {availabilityStatus === 'error' && (
-          <div
-            role="alert"
-            style={{
-              padding: '16px',
-              margin: '16px 0',
-              borderRadius: '10px',
-              background: '#fff7ed',
-              color: '#9a3412',
-              border: '1px solid #fed7aa',
-            }}
-          >
-            <strong>
-              Reservas temporalmente no disponibles.
-            </strong>
-
-            <p style={{ marginTop: '8px' }}>
-              No pudimos consultar los turnos ocupados.
-              Para evitar reservas duplicadas, los
-              horarios permanecerán bloqueados
-              hasta recuperar la conexión.
+            <p>
+              Navegá el calendario y conocé los
+              turnos de 90 minutos de esta cancha.
             </p>
           </div>
-        )}
 
-        <div className="schedule-bubbles">
-          {SCHEDULES.map((schedule) => {
-            const confirmed =
-              confirmedSchedules.includes(schedule);
+          <div className="pl-detail-calendar">
+            <div>
+              <label htmlFor="reservation-date">
+                FECHA DEL PARTIDO
+              </label>
 
-            const past = isPastSchedule(
-              selectedDate,
-              schedule
-            );
+              <p>Elegí el día que querés explorar.</p>
+            </div>
 
-            const inCart = isSlotInCart(
-              String(court.clubId),
-              court.courtId,
-              selectedDate,
-              schedule
-            );
+            <input
+              id="reservation-date"
+              type="date"
+              value={selectedDate}
+              min={getLocalDateString()}
+              onChange={(event) => {
+                setSelectedDate(event.target.value);
+                setMessage('');
 
-            const canCheckAvailability =
-              availabilityStatus === 'ready';
-
-            let statusText = 'Disponible';
-            let statusClass = 'available';
-            let isDisabled = false;
-
-            if (!canCheckAvailability) {
-              statusText =
-                availabilityStatus === 'loading'
-                  ? 'Verificando...'
-                  : 'Sin verificar';
-
-              statusClass = 'unavailable';
-              isDisabled = true;
-            } else if (confirmed || past) {
-              statusText = 'No disponible';
-              statusClass = 'unavailable';
-              isDisabled = true;
-            } else if (inCart) {
-              statusText = 'Ya lo elegiste';
-              statusClass = 'selected';
-              isDisabled = true;
-            }
-
-            return (
-              <button
-                type="button"
-                key={`${selectedDate}-${schedule}`}
-                className={
-                  `schedule-bubble ${statusClass}`
+                if (!DEMO_MODE) {
+                  setAvailabilityStatus('loading');
+                  setConfirmedSchedules([]);
                 }
-                disabled={isDisabled}
-                onClick={() => handleReserve(schedule)}
-              >
-                <span className="schedule-time">
-                  {schedule}
-                </span>
+              }}
+            />
+          </div>
 
-                <span className="schedule-status">
-                  {statusText}
-                </span>
-              </button>
-            );
-          })}
+          {message && (
+            <p
+              className="pl-detail-message"
+              role="status"
+            >
+              {message}
+            </p>
+          )}
+
+          {DEMO_MODE && (
+            <div className="pl-detail-demo-notice">
+              <div className="pl-detail-demo-icon">
+                i
+              </div>
+
+              <div>
+                <strong>
+                  Sistema de reservas en desarrollo
+                </strong>
+
+                <p>
+                  Esta es una demostración de PadelLP.
+                  Podés explorar el calendario y los
+                  horarios, pero las reservas online
+                  todavía no están habilitadas.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {!DEMO_MODE &&
+            availabilityStatus === 'loading' && (
+              <div className="pl-detail-demo-notice">
+                <div>
+                  <strong>
+                    Verificando disponibilidad...
+                  </strong>
+
+                  <p>
+                    Estamos consultando los horarios.
+                  </p>
+                </div>
+              </div>
+            )}
+
+          {!DEMO_MODE &&
+            availabilityStatus === 'error' && (
+              <div
+                className="pl-detail-demo-notice"
+                role="alert"
+              >
+                <div>
+                  <strong>
+                    No se pudo verificar disponibilidad
+                  </strong>
+
+                  <p>
+                    Para evitar reservas duplicadas,
+                    los turnos están bloqueados.
+                  </p>
+                </div>
+              </div>
+            )}
+
+          <div className="pl-detail-slots-heading">
+            <div>
+              <h3>Horarios de la cancha</h3>
+              <p>Turnos de 1 hora y 30 minutos</p>
+            </div>
+
+            <span>
+              {SCHEDULES.length} horarios
+            </span>
+          </div>
+
+          <div className="pl-detail-slots">
+            {SCHEDULES.map((schedule) => {
+              const confirmed =
+                confirmedSchedules.includes(schedule);
+
+              const past = isPastSchedule(
+                selectedDate,
+                schedule
+              );
+
+              const inCart = isSlotInCart(
+                String(court.clubId),
+                court.courtId,
+                selectedDate,
+                schedule
+              );
+
+              let label = 'Disponible';
+              let statusClass = 'available';
+              let disabled = false;
+
+              if (DEMO_MODE) {
+                label = 'Vista previa';
+                statusClass = 'demo';
+                disabled = true;
+              } else if (
+                availabilityStatus !== 'ready'
+              ) {
+                label = 'Sin verificar';
+                statusClass = 'unavailable';
+                disabled = true;
+              } else if (confirmed || past) {
+                label = 'No disponible';
+                statusClass = 'unavailable';
+                disabled = true;
+              } else if (inCart) {
+                label = 'Ya lo elegiste';
+                statusClass = 'selected';
+                disabled = true;
+              }
+
+              return (
+                <button
+                  key={`${selectedDate}-${schedule}`}
+                  type="button"
+                  className={
+                    `pl-detail-slot ${statusClass}`
+                  }
+                  disabled={disabled}
+                  onClick={() => handleReserve(schedule)}
+                >
+                  <strong>{schedule}</strong>
+                  <span>{label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
+
+        <aside className="pl-detail-sidebar">
+          <div className="pl-detail-sidebar-card">
+            <span className="pl-detail-overline">
+              TU CANCHA
+            </span>
+
+            <h3>Detalles del turno</h3>
+
+            <div className="pl-detail-sidebar-row">
+              <span>Club</span>
+              <strong>{court.clubName}</strong>
+            </div>
+
+            <div className="pl-detail-sidebar-row">
+              <span>Cancha</span>
+              <strong>{court.name}</strong>
+            </div>
+
+            <div className="pl-detail-sidebar-row">
+              <span>Duración</span>
+              <strong>90 minutos</strong>
+            </div>
+
+            <div className="pl-detail-sidebar-row">
+              <span>Precio</span>
+
+              <strong>
+                ${court.price.toLocaleString('es-AR')}
+              </strong>
+            </div>
+
+            <div className="pl-detail-sidebar-total">
+              <span>PRECIO DE REFERENCIA</span>
+
+              <strong>
+                ${court.price.toLocaleString('es-AR')}
+              </strong>
+            </div>
+
+            <div className="pl-detail-sidebar-demo">
+              DEMO · RESERVAS NO HABILITADAS
+            </div>
+          </div>
+
+          <div className="pl-detail-help-card">
+            <span>SEGUÍ EXPLORANDO</span>
+
+            <h3>¿Querés ver otras canchas?</h3>
+
+            <p>
+              Encontrá más opciones dentro de
+              este mismo club.
+            </p>
+
+            <Link to={`/club/${court.clubId}`}>
+              Ver otras canchas ↗
+            </Link>
+          </div>
+        </aside>
       </div>
 
-      <div className="detail-actions">
-        <button
-          type="button"
-          className="secondary-button"
-          onClick={handleGoBack}
-        >
-          ← Volver
-        </button>
+      <div className="pl-detail-bottom">
+        <Link to={`/club/${court.clubId}`}>
+          ← Volver al club
+        </Link>
+
+        <span>
+          Imágenes ilustrativas de canchas de pádel.
+        </span>
       </div>
     </section>
   );
